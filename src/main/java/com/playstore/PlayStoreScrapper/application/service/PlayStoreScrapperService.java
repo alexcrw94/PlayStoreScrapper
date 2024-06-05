@@ -2,6 +2,7 @@ package com.playstore.PlayStoreScrapper.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.playstore.PlayStoreScrapper.application.model.PlayStoreItem;
+import com.playstore.PlayStoreScrapper.application.model.PublishStatus;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
@@ -12,6 +13,7 @@ import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -55,7 +57,8 @@ public class PlayStoreScrapperService {
                 log.error("No child link to follow up with. Getting back to Home playstore.");
                 driver.get(URL);
             } else {
-                PlayStoreItem playStoreItem = PlayStoreItem.builder().url(link).build();
+                PlayStoreItem playStoreItem = PlayStoreItem.builder().url(link).publishStatus(PublishStatus.UNPUBLISHED)
+                        .lastAttemptTimestamp(LocalDateTime.now()).attemptCount( 0 ).build();
                 redisStorageService.savePlayStoreItem(playStoreItem);
             }
         }
