@@ -16,7 +16,7 @@ public class RedisStorageService {
 
     private static final String PLAYSTORE_ITEMS_KEY = "playstore_items";
 
-    private static final Long MAXIMUM_ENTRIES_SIZE = 100L;
+    private static final Long MAXIMUM_ENTRIES_SIZE = 10000L;
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;

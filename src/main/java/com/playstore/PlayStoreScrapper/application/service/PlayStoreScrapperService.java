@@ -14,63 +14,78 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class PlayStoreScrapperService {
 
+    private static final String URL = "https://play.google.com/store/apps";
+    private static final Random random = new Random();
     @Autowired
     private RedisStorageService redisStorageService;
 
     @PostConstruct
     public void scrapePlayStore() {
         // Setup ChromeDriver
-        System.setProperty("webdriver.chrome.driver", "C:\\Users\\jandr\\Documents\\chromedriver.exe");
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless");
-        WebDriver driver = new ChromeDriver(options);
+        WebDriver driver = setupWebDriver();
 
         try {
-            driver.get("https://play.google.com/store/apps");
-
-            String link = findUrl(driver);
-
-            // Navigate to the link
-            processUrl(link, driver);
-
+            driver.get(URL);
+            processUrls(driver);
         } catch (Exception e) {
-            //
+            log.error("Error during scraping: " + e.getMessage(), e);
         } finally {
-            // Close the driver
             driver.quit();
         }
     }
 
-    private void processUrl(String link, WebDriver driver) throws Exception {
-        if (link != null && !redisStorageService.isCacheFull() ) {
-            // Its not going to be in the cache because we already check in the method findUrl
-            PlayStoreItem playStoreItem =  PlayStoreItem.builder()
-                    .url(link)
-                    .build();
-            redisStorageService.savePlayStoreItem( playStoreItem );
-            processUrl( findUrl( driver ), driver );
-        } else {
-            log.error( "Either the next link is empty or the cache is full." );
-            throw new Exception("No suitable link found for in the Play Store.");
+    private WebDriver setupWebDriver() {
+        System.setProperty("webdriver.chrome.driver", "C:\\Users\\jandr\\Documents\\chromedriver.exe");
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless");
+        return new ChromeDriver(options);
+    }
+
+    private void processUrls(WebDriver driver) throws Exception {
+        while (!redisStorageService.isCacheFull()) {
+            String link = findUrl(driver);
+            if (link == null) {
+                log.error("No child link to follow up with. Getting back to Home playstore.");
+                driver.get(URL);
+            } else {
+                PlayStoreItem playStoreItem = PlayStoreItem.builder().url(link).build();
+                redisStorageService.savePlayStoreItem(playStoreItem);
+            }
         }
+        log.error("Cache is full!");
+        throw new Exception("Cache is full!");
     }
 
 
-    private String findUrl(WebDriver driver) throws JsonProcessingException {
-        List<WebElement> links = driver.findElements(By.tagName("a"));
-        for (WebElement link : links) {
-            String href = link.getAttribute("href");
-            if (href != null && href.contains("details?id=") && !href.equals( driver.getCurrentUrl() ) &&
-                    redisStorageService.getPlayStoreItem(href) == null ) {
-                driver.get( href );
-                return href;
+    private String findUrl(WebDriver driver) throws Exception {
+        List<WebElement> linkMatchingCriteria = driver.findElements(By.tagName("a")).stream().filter(link -> {
+            String url = link.getAttribute("href");
+            if (url == null || !url.contains("details?id=") || url.equals(driver.getCurrentUrl())) {
+                return false;
             }
+            try {
+                return redisStorageService.getPlayStoreItem(url) == null;
+            } catch (Exception e) {
+                log.error("Error checking Redis for URL: " + url, e);
+                return false;
+            }
+        }).toList();
+
+        if (linkMatchingCriteria.isEmpty()) {
+            log.error("No suitable link found in the current site {}" , driver.getCurrentUrl());
+            return null;
         }
-        return null;
+
+        int randomIndex = random.nextInt(linkMatchingCriteria.size());
+        String randomUrl = linkMatchingCriteria.get(randomIndex).getAttribute("href");
+        driver.get(randomUrl);
+        return randomUrl;
     }
 }
