@@ -1,9 +1,8 @@
-package com.playstore.PlayStoreScrapper.application.service;
+package com.playstore.playstorescraper.application.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.playstore.PlayStoreScrapper.application.model.PlayStoreItem;
-import com.playstore.PlayStoreScrapper.application.model.PublishStatus;
-import jakarta.annotation.PostConstruct;
+import com.playstore.playstorescraper.application.model.AppCategory;
+import com.playstore.playstorescraper.application.model.PlayStoreItem;
+import com.playstore.playstorescraper.application.model.PublishStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
@@ -11,30 +10,66 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class PlayStoreScrapperService {
 
-    private static final String URL = "https://play.google.com/store/apps";
+    private static final String HOME_URL = "https://play.google.com/store/apps";
+    private static final String CATEGORY_URL = "https://play.google.com/store/apps/category/%s";
+    private static final List<AppCategory> CATEGORIES = Arrays.asList(
+            AppCategory.AUTO_AND_VEHICLES,
+            AppCategory.ART_AND_DESIGN,
+            AppCategory.BEAUTY,
+            AppCategory.BOOKS_AND_REFERENCE,
+            AppCategory.BUSINESS,
+            AppCategory.COMICS,
+            AppCategory.COMMUNICATIONS,
+            AppCategory.DATING,
+            AppCategory.EDUCATION,
+            AppCategory.ENTERTAINMENT,
+            AppCategory.EVENTS,
+            AppCategory.FINANCE,
+            AppCategory.FOOD_AND_DRINK,
+            AppCategory.HEALTH_AND_FITNESS,
+            AppCategory.HOUSE_AND_HOME,
+            AppCategory.LIBRARIES_AND_DEMO,
+            AppCategory.LIFESTYLE,
+            AppCategory.MAPS_AND_NAVIGATION,
+            AppCategory.MEDICAL,
+            AppCategory.MUSIC_AND_AUDIO,
+            AppCategory.NEWS_AND_MAGAZINES,
+            AppCategory.PARENTING,
+            AppCategory.PERSONALIZATION,
+            AppCategory.PHOTOGRAPHY,
+            AppCategory.PRODUCTIVITY,
+            AppCategory.SHOPPING,
+            AppCategory.SOCIAL,
+            AppCategory.SPORTS,
+            AppCategory.TOOLS,
+            AppCategory.TRAVEL_AND_LOCAL,
+            AppCategory.VIDEO_PLAYERS,
+            AppCategory.WEATHER
+    );
+
     private static final Random random = new Random();
     @Autowired
     private RedisStorageService redisStorageService;
 
-    @PostConstruct
+    @Async
     public void scrapePlayStore() {
         // Setup ChromeDriver
         WebDriver driver = setupWebDriver();
 
         try {
-            driver.get(URL);
+            driver.get(HOME_URL);
             processUrls(driver);
         } catch (Exception e) {
             log.error("Error during scraping: " + e.getMessage(), e);
@@ -51,13 +86,19 @@ public class PlayStoreScrapperService {
     }
 
     private void processUrls(WebDriver driver) throws Exception {
+        int baseUrlIndex = 0;
         while (!redisStorageService.isCacheFull()) {
             String link = findUrl(driver);
             if (link == null) {
-                log.error("No child link to follow up with. Getting back to Home playstore.");
-                driver.get(URL);
+                // Log the current category before incrementing the index
+                String categoryUrl = String.format(CATEGORY_URL, CATEGORIES.get(baseUrlIndex));
+                log.error("No child link to follow up with. Browsing a new category {}.", categoryUrl);
+                driver.get(categoryUrl);
+
+                // Increment the index after using it
+                baseUrlIndex = (baseUrlIndex + 1) % CATEGORIES.size();
             } else {
-                PlayStoreItem playStoreItem = PlayStoreItem.builder().url(link).publishStatus(PublishStatus.UNPUBLISHED)
+                PlayStoreItem playStoreItem = PlayStoreItem.builder().url(cleanUrl(link)).publishStatus(PublishStatus.UNPUBLISHED)
                         .lastAttemptTimestamp(LocalDateTime.now()).attemptCount( 0 ).build();
                 redisStorageService.savePlayStoreItem(playStoreItem);
             }
@@ -66,6 +107,9 @@ public class PlayStoreScrapperService {
         throw new Exception("Cache is full!");
     }
 
+    private String cleanUrl( String link ) {
+        return link.replace("https://play.google.com/store/apps/details?id=", "");
+    }
 
     private String findUrl(WebDriver driver) throws Exception {
         List<WebElement> linkMatchingCriteria = driver.findElements(By.tagName("a")).stream().filter(link -> {

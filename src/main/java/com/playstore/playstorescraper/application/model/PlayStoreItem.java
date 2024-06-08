@@ -1,17 +1,18 @@
-package com.playstore.PlayStoreScrapper.application.model;
+package com.playstore.playstorescraper.application.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @Builder
 @NoArgsConstructor
 public class PlayStoreItem {
     private String url;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private PublishStatus publishStatus;
     private LocalDateTime lastAttemptTimestamp;
     private int attemptCount;

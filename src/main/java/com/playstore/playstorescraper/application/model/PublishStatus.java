@@ -1,4 +1,4 @@
-package com.playstore.PlayStoreScrapper.application.model;
+package com.playstore.playstorescraper.application.model;
 
 public enum PublishStatus {
     PUBLISHED,

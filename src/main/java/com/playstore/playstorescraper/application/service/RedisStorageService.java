@@ -1,15 +1,14 @@
-package com.playstore.PlayStoreScrapper.application.service;
+package com.playstore.playstorescraper.application.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.playstore.PlayStoreScrapper.application.model.PlayStoreItem;
-import com.playstore.PlayStoreScrapper.application.model.PublishStatus;
+import com.playstore.playstorescraper.application.model.PlayStoreItem;
+import com.playstore.playstorescraper.application.model.PublishStatus;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.HashOperations;
-import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
